@@ -1,0 +1,101 @@
+import { useState } from "react";
+import ExcelJS from "exceljs";
+import { supabase } from "../lib/supabase";
+
+import Sidebar from "../components/Sidebar";
+import "../styles/excel.css";
+
+export default function ExcelUpload() {
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleUpload = async () => {
+    try {
+      if (!file) {
+        alert("Please select an Excel file");
+        return;
+      }
+
+      setLoading(true);
+
+      const buffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+
+      const worksheet = workbook.worksheets[0];
+
+      if (!worksheet) {
+        alert("No worksheet found in this Excel file");
+        return;
+      }
+
+      const students = [];
+
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+
+        const serialNum = row.getCell(1).value;
+        const name = row.getCell(2).value;
+        const degree = row.getCell(3).value;
+
+        if (serialNum && name) {
+          students.push({
+            student_id: String(serialNum).trim(),
+            student_name: String(name).trim(),
+            degree: degree ? String(degree).trim() : null,
+          });
+        }
+      });
+
+      if (students.length === 0) {
+        alert("No students found in the Excel file");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("students")
+        .upsert(students, { onConflict: "student_id" });
+
+      if (error) {
+        console.error(error);
+        alert(error.message);
+        return;
+      }
+
+      alert(`Students uploaded successfully: ${students.length}`);
+      setFile(null);
+    } catch (err) {
+      console.error(err);
+      alert(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex min-h-screen bg-slate-100">
+      <Sidebar />
+
+      <main className="flex-1 p-8">
+        <h1 className="text-3xl font-bold">Excel Upload</h1>
+
+        <div className="bg-white rounded-2xl shadow p-8 mt-8">
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(e) => setFile(e.target.files[0])}
+            className="border p-3 rounded-xl"
+          />
+
+          <button
+            onClick={handleUpload}
+            disabled={loading}
+            className="bg-[#0B3D91] text-white px-5 py-3 rounded-xl ml-4 disabled:opacity-50"
+          >
+            {loading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+      </main>
+    </div>
+  );
+}
