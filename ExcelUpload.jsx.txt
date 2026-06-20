@@ -28,7 +28,20 @@ export default function ExcelUpload() {
         alert("No worksheet found in this Excel file");
         return;
       }
+      const header1 = String(worksheet.getCell("A1").value || "").trim();
+      const header2 = String(worksheet.getCell("B1").value || "").trim();
+      const header3 = String(worksheet.getCell("C1").value || "").trim();
 
+      if (
+        header1 !== "student_id" ||
+        header2 !== "student_name" ||
+        header3 !== "degree"
+      ) {
+        alert(
+          "Invalid Excel file. The columns must be: student_id, student_name, degree",
+        );
+        return;
+      }
       const students = [];
 
       worksheet.eachRow((row, rowNumber) => {
